@@ -119,7 +119,7 @@ app.use((request, response, next) => {
   next();
 });
 app.use(express.json({ limit: '64kb' }));
-app.use('/assets', express.static(path.join(__dirname, 'public'), {
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
   fallthrough: false,
   index: false,
   maxAge: 0,

@@ -71,7 +71,7 @@ SUPABASE POSTGRESQL
                                   private vault; never sent by email
 ```
 
-The browser UI remains zero-build HTML/CSS/Vanilla JS in `public/` and `private/`. Public assets stay organized under `public/css/` and `public/js/`; private pages and scripts are grouped under `private/pages/` and `private/scripts/` by audience and feature. Existing page and API URLs are preserved while HTTP handling, route mounting, and data access are separated into `controllers/`, `routes/`, and `models/`.
+The browser UI remains zero-build HTML/CSS/Vanilla JS in `public/` and `private/`. Public assets stay organized under `public/assets/css/`, `public/assets/js/`, and `public/assets/assests/`; private pages and scripts are grouped under `private/pages/` and `private/scripts/` by audience and feature. Existing page and API URLs are preserved while HTTP handling, route mounting, and data access are separated into `controllers/`, `routes/`, and `models/`.
 
 ### Local pages and access
 

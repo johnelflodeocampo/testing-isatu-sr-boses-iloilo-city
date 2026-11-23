@@ -37,7 +37,7 @@ In production mode, startup validates the GAS URL and shared secret without send
 
 ## 3. Deploy
 
-Connect this repository to Vercel with the repository root as the project root. `vercel.json` explicitly selects the Express framework so application routes such as `/privacy` and `/login` reach the exported app in `app.js`. No frontend build command is required; the asset rewrite maps legacy `/assets/...` URLs to files under `public/`.
+Connect this repository to Vercel with the repository root as the project root. `vercel.json` explicitly selects the Express framework so application routes such as `/privacy` and `/login` reach the exported app in `app.js`. No frontend build command is required; static assets under `public/assets/` are served directly at their existing `/assets/...` URLs.
 
 The app uses PostgreSQL-backed rate limiting so OTP and API limits are shared across serverless instances. The rate-limit table stores HMACs of client keys rather than raw IP addresses. Privacy-notice edits are persisted in PostgreSQL; Vercel's temporary filesystem is not used for writes.
 
