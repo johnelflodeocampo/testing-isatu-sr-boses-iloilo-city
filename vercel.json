@@ -3,11 +3,7 @@
   "functions": {
     "app.js": {
       "maxDuration": 30,
-      "includeFiles": [
-        "private/**",
-        "public/index.html",
-        "notice/notice.txt"
-      ]
+      "includeFiles": "{private/**,public/index.html,notice/notice.txt}"
     }
   },
   "rewrites": [
