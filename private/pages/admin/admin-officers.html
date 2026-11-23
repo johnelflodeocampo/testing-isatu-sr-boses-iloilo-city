@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a2e">
+  <title>Officer access | ISAT U BOSES</title>
+  <link rel="icon" href="/assets/assests/logo/sr_logo.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/transitions.js" defer></script>
+  <script src="/admin/officers/app.js" defer></script>
+</head>
+<body class="portal-page portal-dashboard-page admin-portal-page admin-officers-page">
+  <header class="portal-sidebar admin-sidebar" aria-label="Officer workspace">
+    <a class="sidebar-brand" href="/admin"><span class="sidebar-logo-pair" aria-hidden="true"><img src="/assets/assests/logo/isatu_logo.png" alt=""><img src="/assets/assests/logo/sr_logo.png" alt=""></span><span class="sidebar-brand-copy"><strong>Iloilo Science and Technology University</strong><small>STUDENT REPUBLIC — ILOILO CITY CAMPUS</small></span></a>
+    <nav class="sidebar-nav" aria-label="Officer navigation">
+      <a href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a href="/admin/reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span>Reports</span></a>
+      <a href="/inbox"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg><span>Inbox</span></a>
+      <a href="/admin/resources"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Resources</span></a>
+      <a href="/admin/insights"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2 1-4.5a7.5 7.5 0 1 1 16-5Z"/><path d="M8 11h8M8 14h5"/></svg><span>Portal Insights</span></a>
+      <a id="archive-link" href="/admin/archive" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v13H4zM3 4h18v3H3z"/><path d="M9 11h6"/></svg><span>Archived</span></a>
+      <a id="sender-tags-link" href="/admin/senders" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5h4M18 3.5v4M16 13h4M16 17h4"/></svg><span>Senders</span></a>
+      <a id="officer-access-link" href="/admin/officers" aria-current="page" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M17 8h4M19 6v4"/></svg><span>Officer access</span></a>
+      <a id="privacy-link" href="/admin/privacy" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><span>Privacy notice</span></a>
+    </nav>
+    <div class="sidebar-workspace-label">Officer workspace</div>
+    <button class="sidebar-signout" id="logout-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="M14 16l4-4-4-4M18 12H9"/></svg><span>Sign out</span></button>
+  </header>
+  <div class="portal-workspace">
+    <header class="dashboard-topbar">
+      <div class="dashboard-heading"><h1>Officer access</h1><span class="workspace-tag" id="access-role-label">Superadmin</span></div>
+      <div class="dashboard-user dashboard-user-officer"><span class="dashboard-user-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></span><span class="dashboard-user-copy"><small>Signed in as</small><strong id="officer-name">—</strong><small id="officer-email">—</small></span></div>
+    </header>
+    <main class="portal-main dashboard-main">
+    <p class="muted">Manage email addresses allowed into the admin console. At least one superadmin must remain.</p>
+    <section class="panel admin-panel">
+      <div class="panel-heading"><span class="panel-icon panel-icon-blue">⚙</span><div><h2>Officer directory</h2><p>View and manage email addresses allowed into the admin console.</p></div><button id="add-officer-button" class="button button-small" type="button">Add officer</button></div>
+      <div class="toolbar officer-toolbar">
+        <label class="search-field"><span class="sr-only">Search officers by name or email. Use the role filter to filter by role.</span><input id="officer-search" type="search" placeholder="Search name or email"></label>
+        <label class="filter-field" for="officer-role-filter">Role
+          <select id="officer-role-filter" aria-label="Filter officers by role">
+            <option value="all">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="superadmin">Superadmin</option>
+          </select>
+        </label>
+      </div>
+      <p id="access-message" class="form-message" role="status" aria-live="polite"></p>
+      <div id="officer-table-wrap" class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Added</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead>
+          <tbody id="officer-access-list"><tr><td colspan="6" class="empty-state">Loading officer access…</td></tr></tbody>
+        </table>
+      </div>
+      <nav id="officer-pagination" class="report-pagination officer-pagination" aria-label="Officer pages" hidden>
+        <button id="officer-previous-page" class="button button-small button-muted" type="button">Previous</button>
+        <span id="officer-page-status" class="report-page-status" aria-live="polite"></span>
+        <button id="officer-next-page" class="button button-small button-muted" type="button">Next</button>
+      </nav>
+    </section>
+    <dialog id="officer-access-dialog" class="report-detail-dialog" aria-labelledby="officer-access-dialog-title">
+      <div class="report-detail-header">
+        <div><p class="eyebrow">Officer access</p><h2 id="officer-access-dialog-title">Add officer</h2></div>
+      </div>
+      <form id="admin-access-form" class="form-stack officer-access-form">
+        <label for="access-name">Officer name</label>
+        <input id="access-name" name="name" type="text" autocomplete="name" maxlength="120" required>
+        <label for="access-email">ISAT U email</label>
+        <input id="access-email" name="email" type="email" autocomplete="off" maxlength="254" placeholder="name@isatu.edu.ph" required>
+        <label for="access-role">Role</label>
+        <select id="access-role" name="role"><option value="admin">Admin</option><option value="superadmin">Superadmin</option></select>
+        <div class="report-detail-actions">
+          <button id="cancel-officer-access" class="button button-small button-muted" type="button">Cancel</button>
+          <button id="save-officer-access" class="button button-small" type="submit">Add access</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+  <footer class="home-footer portal-home-footer">
+    <div class="home-footer-inner">
+      <div class="home-footer-brand">
+        <span class="footer-logo-pair" aria-hidden="true">
+          <img src="/assets/assests/logo/isatu_logo.png" alt="">
+          <img src="/assets/assests/logo/sr_logo.png" alt="">
+        </span>
+        <span class="home-footer-brand-copy">
+          <strong>ISATU SR BOSES</strong>
+          <span>Iloilo Science and Technology University</span>
+          <span>Student Republic · Iloilo City Campus</span>
+        </span>
+      </div>
+      <div class="footer-social-links" aria-label="Social media">
+        <a href="https://facebook.com/ISATUSR" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.8 21v-8h2.7l.4-3h-3.1V8.1c0-.9.3-1.5 1.6-1.5H17V4c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.2V10H7.7v3h2.7v8z"/></svg></a>
+        <a href="https://instagram.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="social-dot" cx="17.5" cy="6.8" r="1"/></svg></a>
+        <a href="https://x.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="X"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l14 16M19 4 5 20"/></svg></a>
+        <a href="https://youtube.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path class="social-play" d="m10 8.5 6 3.5-6 3.5z"/></svg></a>
+        <a href="mailto:studentrepublic@isatu.edu.ph" aria-label="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></svg></a>
+      </div>
+    </div>
+    <p class="footer-copyright">© 2026 Iloilo Science and Technology University - Student Republic. All Rights Reserved.</p>
+  </footer>
+  </div>
+</body>
+</html>

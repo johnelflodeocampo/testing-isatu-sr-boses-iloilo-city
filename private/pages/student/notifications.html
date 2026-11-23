@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a2e">
+  <title>Notifications | ISAT U BOSES</title>
+  <link rel="icon" href="/assets/assests/logo/sr_logo.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/transitions.js" defer></script>
+  <script src="/notifications/app.js" defer></script>
+</head>
+<body class="portal-page portal-dashboard-page student-notifications-page">
+  <header class="portal-sidebar" aria-label="Student private space">
+    <a class="sidebar-brand" href="/dashboard">
+      <span class="sidebar-logo-pair" aria-hidden="true">
+        <img src="/assets/assests/logo/isatu_logo.png" alt="">
+        <img src="/assets/assests/logo/sr_logo.png" alt="">
+      </span>
+      <span class="sidebar-brand-copy">
+        <strong>Iloilo Science and Technology University</strong>
+        <small>STUDENT REPUBLIC — ILOILO CITY CAMPUS</small>
+      </span>
+    </a>
+    <nav class="sidebar-nav" aria-label="Student navigation">
+      <a href="/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a href="/dashboard/share"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2 1-4.5a7.5 7.5 0 1 1 16-5Z"/><path d="M8 11h8M8 14h5"/></svg><span>Share a concern</span></a>
+      <a href="/dashboard/reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2"/><path d="M3.5 4.5v4h4M12 7.5v5l3 2"/></svg><span>Your reports</span></a>
+      <a href="/dashboard/insights"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M8.5 14.5a5 5 0 1 1 7 0c-.8.7-1.3 1.6-1.5 2.5h-4c-.2-.9-.7-1.8-1.5-2.5ZM12 2v2M4.9 5l1.4 1.4M19.1 5l-1.4 1.4M3 11h2M19 11h2"/></svg><span>Portal Insights</span></a>
+      <a href="/inbox"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg><span>Inbox</span></a>
+      <a href="/dashboard/resources"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.1 1.1-1.8 1.3-1.8 2.8M12 17h.01"/></svg><span>FAQs</span></a>
+      <a href="/dashboard/privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><span>Privacy</span></a>
+    </nav>
+    <button class="sidebar-signout" id="logout-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="M14 16l4-4-4-4M18 12H9"/></svg><span>Sign out</span></button>
+  </header>
+  <div class="portal-workspace">
+    <header class="dashboard-topbar">
+      <div class="dashboard-heading"><h1>Notifications</h1><span class="workspace-tag">Student private space</span></div>
+      <div class="dashboard-user"><span class="dashboard-user-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></span><span class="dashboard-user-copy"><small>Signed in as</small><strong id="member-email">—</strong></span></div>
+    </header>
+    <main class="portal-main dashboard-main">
+      <section class="panel notifications-panel">
+        <div class="panel-heading"><span class="panel-icon panel-icon-blue" aria-hidden="true"><svg class="updates-icon" viewBox="0 0 24 24"><path d="M18 16H6l1.5-2v-3.5a4.5 4.5 0 0 1 9 0V14z"/><path d="M10 18.5h4"/></svg></span><div><h2>Your updates</h2><p>Status changes and new report conversations.</p></div><button id="mark-all-read" class="button button-small button-muted" type="button" disabled>Mark all read</button></div>
+        <div id="notification-list" class="notification-list"><p class="empty-state">Loading notifications…</p></div>
+      </section>
+    </main>
+    <footer class="home-footer portal-home-footer">
+      <div class="home-footer-inner">
+        <div class="home-footer-brand">
+          <span class="footer-logo-pair" aria-hidden="true">
+            <img src="/assets/assests/logo/isatu_logo.png" alt="">
+            <img src="/assets/assests/logo/sr_logo.png" alt="">
+          </span>
+          <span class="home-footer-brand-copy">
+            <strong>ISATU SR BOSES</strong>
+            <span>Iloilo Science and Technology University</span>
+            <span>Student Republic · Iloilo City Campus</span>
+          </span>
+        </div>
+        <div class="footer-social-links" aria-label="Social media">
+          <a href="https://facebook.com/ISATUSR" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.8 21v-8h2.7l.4-3h-3.1V8.1c0-.9.3-1.5 1.6-1.5H17V4c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.2V10H7.7v3h2.7v8z"/></svg></a>
+          <a href="https://instagram.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="social-dot" cx="17.5" cy="6.8" r="1"/></svg></a>
+          <a href="https://x.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="X"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l14 16M19 4 5 20"/></svg></a>
+          <a href="https://youtube.com/isatustudentrepublic" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path class="social-play" d="m10 8.5 6 3.5-6 3.5z"/></svg></a>
+          <a href="mailto:studentrepublic@isatu.edu.ph" aria-label="Email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></svg></a>
+        </div>
+      </div>
+      <p class="footer-copyright">© 2026 Iloilo Science and Technology University - Student Republic. All Rights Reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>
