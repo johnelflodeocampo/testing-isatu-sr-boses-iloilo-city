@@ -28,8 +28,14 @@ if (!['postgres:', 'postgresql:'].includes(parsedDatabaseUrl.protocol)) {
 }
 
 const caPath = process.env.SUPABASE_DB_CA_CERT?.trim();
+const caContent = process.env.SUPABASE_DB_CA_CERT_CONTENT?.trim();
 let ssl = true;
-if (caPath) {
+if (caContent) {
+  if (!caContent.includes('-----BEGIN CERTIFICATE-----')) {
+    throw new Error('SUPABASE_DB_CA_CERT_CONTENT must contain a PEM certificate.');
+  }
+  ssl = { ca: caContent, rejectUnauthorized: true };
+} else if (caPath) {
   const resolvedCaPath = path.isAbsolute(caPath)
     ? caPath
     : path.resolve(__dirname, '..', caPath);
@@ -50,9 +56,17 @@ if (caPath) {
   ssl = { ca, rejectUnauthorized: true };
 }
 
+const maxPoolSize = Number(process.env.DB_POOL_MAX || (process.env.VERCEL ? 3 : 10));
+if (!Number.isInteger(maxPoolSize) || maxPoolSize < 1 || maxPoolSize > 20) {
+  throw new Error('DB_POOL_MAX must be an integer between 1 and 20.');
+}
+
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl,
+  max: maxPoolSize,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 10000,
   options: '-c role=boses_app',
 });
 

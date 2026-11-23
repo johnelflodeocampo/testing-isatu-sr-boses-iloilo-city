@@ -1,6 +1,5 @@
 const express = require('express');
 const fs = require('node:fs/promises');
-const privacyNoticeStore = require('../lib/privacyNoticeStore');
 const sanitizePrivacyHtml = require('../lib/privacyHtml');
 
 module.exports = function createController(dependencies) {
@@ -8,6 +7,7 @@ module.exports = function createController(dependencies) {
     path,
     publicDirectory,
     privateDirectory,
+    privacyNoticeStore,
     pool,
     reportModel,
     loginOtp,

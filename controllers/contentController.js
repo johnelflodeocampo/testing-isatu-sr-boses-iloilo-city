@@ -1,8 +1,13 @@
 const express = require('express');
-const privacyNoticeStore = require('../lib/privacyNoticeStore');
 const sanitizePrivacyHtml = require('../lib/privacyHtml');
 
-module.exports = function createController({ pool, requireSession, requireBrowserRequest, handleDatabaseError }) {
+module.exports = function createController({
+  pool,
+  privacyNoticeStore,
+  requireSession,
+  requireBrowserRequest,
+  handleDatabaseError,
+}) {
   const router = express.Router();
   const categoryTypes = {
     faq: { table: 'knowledge_base_entries', defaultName: 'General' },
@@ -228,8 +233,8 @@ module.exports = function createController({ pool, requireSession, requireBrowse
       if (notice) notice.body = sanitizePrivacyHtml(notice.body);
       response.json({ notice });
     } catch (error) {
-      console.error('Privacy notice file read failed:', error.message);
-      response.status(500).json({ error: 'The privacy notice file could not be read.' });
+      console.error('Privacy notice read failed:', error.message);
+      response.status(500).json({ error: 'The privacy notice could not be read.' });
     }
   });
 
@@ -314,15 +319,15 @@ module.exports = function createController({ pool, requireSession, requireBrowse
       const notice = readPrivacyNotice(request.body);
       if (!notice) return response.status(400).json({ error: 'Enter a title and notice text within the stated limits.' });
       try {
-        if (await privacyNoticeStore.read()) {
+        const storedNotice = { ...notice, updated_at: new Date().toISOString() };
+        const created = await privacyNoticeStore.create(storedNotice);
+        if (!created) {
           return response.status(409).json({ error: 'A privacy notice already exists. Edit the existing notice instead.' });
         }
-        const storedNotice = { ...notice, updated_at: new Date().toISOString() };
-        await privacyNoticeStore.write(storedNotice);
-        response.status(201).json({ notice: storedNotice });
+        response.status(201).json({ notice: created });
       } catch (error) {
-        console.error('Privacy notice file write failed:', error.message);
-        response.status(500).json({ error: 'The privacy notice could not be saved to notice/notice.txt.' });
+        console.error('Privacy notice database write failed:', error.message);
+        response.status(500).json({ error: 'The privacy notice could not be saved.' });
       }
     },
   );
@@ -338,11 +343,11 @@ module.exports = function createController({ pool, requireSession, requireBrowse
         const existingNotice = await privacyNoticeStore.read();
         if (!existingNotice) return response.status(404).json({ error: 'Privacy notice not found.' });
         const storedNotice = { ...notice, updated_at: new Date().toISOString() };
-        await privacyNoticeStore.write(storedNotice);
-        response.json({ notice: storedNotice });
+        const updatedNotice = await privacyNoticeStore.write(storedNotice);
+        response.json({ notice: updatedNotice });
       } catch (error) {
-        console.error('Privacy notice file write failed:', error.message);
-        response.status(500).json({ error: 'The privacy notice could not be saved to notice/notice.txt.' });
+        console.error('Privacy notice database write failed:', error.message);
+        response.status(500).json({ error: 'The privacy notice could not be saved.' });
       }
     },
   );
@@ -357,8 +362,8 @@ module.exports = function createController({ pool, requireSession, requireBrowse
         if (!removed) return response.status(404).json({ error: 'Privacy notice not found.' });
         response.json({ deleted: true });
       } catch (error) {
-        console.error('Privacy notice file deletion failed:', error.message);
-        response.status(500).json({ error: 'The privacy notice file could not be deleted.' });
+        console.error('Privacy notice database delete failed:', error.message);
+        response.status(500).json({ error: 'The privacy notice could not be deleted.' });
       }
     },
   );

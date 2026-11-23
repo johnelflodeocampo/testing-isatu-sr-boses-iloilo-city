@@ -2,6 +2,26 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const createGasApiClient = require('../utils/gasApi');
 
+test('GAS configuration can be checked without sending an email', (t) => {
+  const originalUrl = process.env.GAS_API_URL;
+  const originalSecret = process.env.GAS_API_SECRET;
+  t.after(() => {
+    if (originalUrl === undefined) delete process.env.GAS_API_URL;
+    else process.env.GAS_API_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.GAS_API_SECRET;
+    else process.env.GAS_API_SECRET = originalSecret;
+  });
+
+  const client = createGasApiClient({});
+  delete process.env.GAS_API_URL;
+  delete process.env.GAS_API_SECRET;
+  assert.throws(client.validateConfiguration, /Set GAS_API_URL and GAS_API_SECRET/);
+
+  process.env.GAS_API_URL = 'https://script.google.com/macros/s/test-deployment/exec';
+  process.env.GAS_API_SECRET = 'test-secret-with-at-least-thirty-two-characters';
+  assert.doesNotThrow(() => client.validateConfiguration());
+});
+
 test('login OTP requests use the shared-secret format for both ISAT U email domains', async (t) => {
   const originalUrl = process.env.GAS_API_URL;
   const originalSecret = process.env.GAS_API_SECRET;

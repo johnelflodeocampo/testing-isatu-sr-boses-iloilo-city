@@ -21,6 +21,12 @@ function createDependencies(overrides = {}) {
       query: async () => ({ rowCount: 1, rows: [{ role: 'admin' }] }),
     },
     reportModel: {},
+    privacyNoticeStore: {
+      read: async () => null,
+      create: async () => null,
+      write: async () => null,
+      remove: async () => false,
+    },
     loginOtp: {
       request: async () => ({ sent: true }),
       verify: async () => true,

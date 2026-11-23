@@ -2,7 +2,7 @@
 -- No local student submissions or secrets are included. Bootstrap admin emails
 -- and default resource categories from the canonical schema are included.
 -- Run as the project database owner. The guard below rejects existing BOSES tables.
--- Login OTP delivery is handled by the signed Google Apps Script API, not Supabase Auth.
+-- Login OTP delivery is handled by the shared-secret Google Apps Script API, not Supabase Auth.
 -- This schema includes private_vault.login_otp_challenges for hashed, expiring codes.
 
 BEGIN;
@@ -19,6 +19,8 @@ BEGIN
         'member_drafts',
         'knowledge_base_entries',
         'resource_categories',
+        'site_privacy_notice',
+        'api_rate_limits',
         'banned_identities',
         'restricted_message_identities',
         'insight_messages',
@@ -350,6 +352,37 @@ CREATE TABLE IF NOT EXISTS public.resource_categories (
 
 CREATE UNIQUE INDEX IF NOT EXISTS resource_categories_type_name_unique
     ON public.resource_categories (resource_type, lower(name));
+
+CREATE TABLE IF NOT EXISTS public.site_privacy_notice (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    title TEXT,
+    body TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT site_privacy_notice_content CHECK (
+        (
+            is_published
+            AND title IS NOT NULL
+            AND char_length(btrim(title)) BETWEEN 1 AND 40
+            AND body IS NOT NULL
+            AND char_length(body) BETWEEN 1 AND 10000
+        )
+        OR (
+            NOT is_published
+            AND title IS NULL
+            AND body IS NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS public.api_rate_limits (
+    key_hash TEXT PRIMARY KEY CHECK (key_hash ~ '^[0-9a-f]{64}$'),
+    hit_count INTEGER NOT NULL CHECK (hit_count >= 0),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS api_rate_limits_expires_at_idx
+    ON public.api_rate_limits (expires_at);
 
 INSERT INTO public.resource_categories (resource_type, name)
 VALUES ('faq', 'General')
@@ -1672,6 +1705,10 @@ GRANT USAGE ON SCHEMA private_vault TO boses_app;
 GRANT SELECT ON TABLE public.admins TO boses_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.knowledge_base_entries TO boses_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.resource_categories TO boses_app;
+REVOKE ALL ON TABLE public.site_privacy_notice FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.site_privacy_notice TO boses_app;
+REVOKE ALL ON TABLE public.api_rate_limits FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.api_rate_limits TO boses_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.insights TO boses_app;
 REVOKE ALL ON TABLE public.portal_insights FROM PUBLIC, boses_app;
 GRANT SELECT, DELETE ON TABLE public.portal_insights TO boses_app;

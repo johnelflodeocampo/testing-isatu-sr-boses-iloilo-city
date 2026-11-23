@@ -121,6 +121,10 @@ function createGasApiClient(
   }
 
   return {
+    validateConfiguration() {
+      getConfiguration(true);
+    },
+
     async sendOfficerEmailNotification(notification) {
       validateNotification(notification);
       const configuration = getConfiguration(false);
