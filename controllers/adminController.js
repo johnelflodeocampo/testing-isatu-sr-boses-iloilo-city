@@ -459,7 +459,7 @@ module.exports = function createController(dependencies) {
         );
         await notifyOfficersByEmail({
           event: 'new_submission',
-          reportType: insight.report_type,
+          reportType,
           trackingId: insight.tracking_id,
         });
         response.status(201).json({ insight });
