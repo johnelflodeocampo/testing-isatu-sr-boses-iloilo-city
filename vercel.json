@@ -1,11 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "app.js": {
-      "maxDuration": 30,
-      "includeFiles": "{private/**,public/index.html,notice/notice.txt}"
-    }
-  },
   "rewrites": [
     {
       "source": "/assets/:path*",
