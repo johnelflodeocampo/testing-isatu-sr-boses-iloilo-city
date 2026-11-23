@@ -2,10 +2,15 @@
   "name": "isatu-sr-boses-iloilo-city",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "create_db": "node create_db.js",
     "start": "node app.js",
-    "dev": "node --watch app.js"
+    "dev": "node --watch app.js",
+    "test": "node --test",
+    "migrate:privacy-notice": "node scripts/migratePrivacyNoticeToPostgres.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

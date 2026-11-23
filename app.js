@@ -9,6 +9,8 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const createGasApiClient = require('./utils/gasApi');
 const createLoginOtp = require('./utils/loginOtp');
+const createPostgresRateLimitStore = require('./utils/postgresRateLimitStore');
+const createPrivacyNoticeStore = require('./lib/postgresPrivacyNoticeStore');
 const {
   normalizeEmail: normalizeIsatuEmail,
   normalizeOfficerEmail,
@@ -17,11 +19,16 @@ const {
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const appUrl = new URL(process.env.APP_URL || `http://localhost:${port}`);
+const vercelHost = process.env.VERCEL_URL?.trim();
+const configuredAppUrl = process.env.APP_URL?.trim();
+const appUrl = new URL(
+  configuredAppUrl || (vercelHost ? `https://${vercelHost}` : `http://localhost:${port}`),
+);
 const sessionCookie = 'boses_user_session';
 const sessionDurationSeconds = 8 * 60 * 60;
 const privateDirectory = path.join(__dirname, 'private');
 const isLocalApp = ['localhost', '127.0.0.1', '::1'].includes(appUrl.hostname);
+const allowedOrigins = new Set([appUrl.origin]);
 const secureCookies = appUrl.protocol === 'https:';
 const sessionCookieOptions = {
   httpOnly: true,
@@ -36,18 +43,33 @@ const errorPageTemplate = fs.readFileSync(
 const pool = require('./models/database');
 const reportModel = require('./models/reportModel')(pool);
 const draftModel = require('./models/draftModel')(pool);
+const privacyNoticeStore = createPrivacyNoticeStore(pool);
 
 if (appUrl.protocol !== 'https:' && !isLocalApp) {
   throw new Error('APP_URL must use HTTPS except for localhost development.');
 }
+if (process.env.NODE_ENV === 'production' && isLocalApp) {
+  throw new Error('Set APP_URL or deploy to Vercel with VERCEL_URL before running in production.');
+}
+for (const deploymentHost of [
+  process.env.VERCEL_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL,
+]) {
+  if (deploymentHost && /^[a-z0-9.-]+$/i.test(deploymentHost)) {
+    allowedOrigins.add(`https://${deploymentHost}`);
+  }
+}
 
 for (const name of ['JWT_SECRET', 'HASH_PEPPER']) {
-  if (!process.env[name] || process.env[name].startsWith('CHANGE_ME')) {
-    throw new Error(`Set ${name} to a unique random value in the project .env file.`);
+  if (!process.env[name] || process.env[name].startsWith('CHANGE_ME')
+    || process.env[name].length < 32) {
+    throw new Error(`Set ${name} to a unique random value of at least 32 characters.`);
   }
 }
 
 const gasApi = createGasApiClient(pool);
+if (process.env.NODE_ENV === 'production') gasApi.validateConfiguration();
 const loginOtp = createLoginOtp({
   pool,
   secret: process.env.JWT_SECRET,
@@ -55,6 +77,7 @@ const loginOtp = createLoginOtp({
 });
 
 app.disable('x-powered-by');
+if (process.env.VERCEL) app.set('trust proxy', 1);
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -108,6 +131,7 @@ const apiLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many requests. Please wait and try again.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'api'),
 });
 const trackerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -115,6 +139,7 @@ const trackerLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many tracking lookups. Please wait before trying again.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'tracker'),
 });
 const otpRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -122,6 +147,7 @@ const otpRequestLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many code requests. Wait before requesting another code.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'otp-request'),
 });
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -129,6 +155,7 @@ const otpVerifyLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many code attempts. Wait before trying again.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'otp-verify'),
 });
 const submissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -136,6 +163,7 @@ const submissionLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Submission limit reached. Please try again later.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'submission'),
 });
 const messageLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -143,6 +171,7 @@ const messageLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many messages. Please wait before sending more.' },
+  store: createPostgresRateLimitStore(pool, process.env.HASH_PEPPER, 'message'),
 });
 
 app.use('/api', apiLimiter);
@@ -328,7 +357,7 @@ function requireBrowserRequest(request, response, next) {
   if (request.get('X-Requested-With') !== 'BOSES-Client') {
     return response.status(403).json({ error: 'This request is not allowed.' });
   }
-  if (request.get('Origin') && request.get('Origin') !== appUrl.origin) {
+  if (request.get('Origin') && !allowedOrigins.has(request.get('Origin'))) {
     return response.status(403).json({ error: 'Request origin is not allowed.' });
   }
   next();
@@ -376,6 +405,7 @@ app.use(require('./routes')({
   appUrl,
   publicDirectory: path.join(__dirname, 'public'),
   privateDirectory,
+  privacyNoticeStore,
   sendPrivatePage,
   sendPrivateScript,
   pool,
@@ -469,20 +499,23 @@ app.use((error, request, response, next) => {
 
 async function start() {
   await pool.query('SELECT 1');
-  app.listen(port, '127.0.0.1', () => {
+  app.listen(port, () => {
     console.log(`ISAT U BOSES is listening at http://localhost:${port}`);
-    console.log('Configure GAS_API_URL and GAS_API_SECRET to enable email-code sign-in.');
   });
 }
 
-start().catch(async (error) => {
-  if (error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
-    console.error(
-      'Could not start ISAT U BOSES: download the Supabase database CA certificate from Project Settings > Database > SSL Configuration, set SUPABASE_DB_CA_CERT in .env to its path, and restart.',
-    );
-  } else {
-    console.error('Could not start ISAT U BOSES:', error.message);
-  }
-  await pool.end();
-  process.exitCode = 1;
-});
+module.exports = app;
+
+if (require.main === module) {
+  start().catch(async (error) => {
+    if (error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
+      console.error(
+        'Could not start ISAT U BOSES: set SUPABASE_DB_CA_CERT_CONTENT to the Supabase database CA PEM or SUPABASE_DB_CA_CERT to its local path.',
+      );
+    } else {
+      console.error('Could not start ISAT U BOSES:', error.message);
+    }
+    await pool.end();
+    process.exitCode = 1;
+  });
+}

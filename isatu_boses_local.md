@@ -65,7 +65,8 @@ SUPABASE POSTGRESQL
   public.concern_assignments      Persistent concern-to-admin assignment and queue
   public.insight_messages         Per-report messages and officer sender email
   public.knowledge_base_entries   Public FAQ questions and answers
-  notice/notice.txt               Public privacy notice; only superadmins can manage it
+  public.site_privacy_notice      Durable public privacy notice; only superadmins can manage it
+  public.api_rate_limits          Shared, HMAC-keyed rate-limit windows
   private_vault.notify_emails     Signed-in account email in a restricted
                                   private vault; never sent by email
 ```
@@ -197,7 +198,8 @@ MEMBER SUBMITS
 | `public.restricted_message_identities` | Protected identity tag and officer/timestamp for sender-wide message restrictions | Read, insert, and delete through officer-authorized application routes |
 | `public.insight_messages` | Report ID, sender role, message body, timestamp | Read and insert through report-owner or allowlisted-officer API routes |
 | `public.knowledge_base_entries` | FAQ category, question, answer, and editor timestamps | Public read; create, update, and delete by admins and superadmins |
-| `notice/notice.txt` | Plain-text JSON document containing the public notice title, formatted body, and update timestamp | Publicly rendered on `/privacy`; notice API reads require a session; write and delete by superadmins only |
+| `public.site_privacy_notice` | Published privacy notice and update timestamp | Publicly rendered on `/privacy`; notice API reads require a session; write and delete by superadmins only |
+| `public.api_rate_limits` | HMAC-keyed request counters and expiry timestamps | Accessed by the server's shared rate-limit store; raw client IPs are not stored |
 | `private_vault.notify_emails` | Insight ID, submitter email, creation timestamp | No direct application-role access; database functions only |
 
 Use the existing schema's constraints and least-privilege role model. The vault is readable/writable only through:
@@ -224,7 +226,7 @@ Both functions must enforce the expected operation and return no more sensitive 
 | Manage FAQs | Deny | Deny | Allow | — |
 | Manage privacy notice | Deny | Deny | Superadmin only | — |
 | View raw submitter email | Deny | Deny | Deny | Restricted notification operation only |
-| Send officer email notification | Deny | Deny | Deny | Server-side only, signed request to optional GAS endpoint |
+| Send officer email notification | Deny | Deny | Deny | Server-side only, shared-secret request to the GAS endpoint |
 | Directly access `private/` files | Deny | Deny | Deny | — |
 
 Email OTPs are generated and verified by the BOSES server and delivered by the shared-secret GAS API. Student email-domain checks, member bans, and officer allowlisting are enforced before issuing a BOSES session.
@@ -374,13 +376,13 @@ psql -v ON_ERROR_STOP=1 -U postgres -d isatu_sr_boses_iloilocity_db \
   -f db/migrations/20261120_officer_removal_archive_cleanup.sql
 ```
 
-The privacy notice is stored in `notice/notice.txt` rather than PostgreSQL. Existing installations must migrate the notice file and remove the database row:
+The privacy notice is stored in PostgreSQL for durable deployment. Existing installations should apply `db/migrations/20261124_vercel_readiness.sql` and copy their legacy notice file:
 
 ```powershell
-node scripts/migratePrivacyNoticeToFile.js
+npm run migrate:privacy-notice
 ```
 
-The file contains non-confidential public notice content as JSON text so the rich-text body is preserved. Ensure the application service account can write to the `notice` directory. Notice titles remain editable and support up to 40 characters, including “Privacy & Confidentiality Notice.”
+The legacy file remains a read-only fallback for deployments that have not yet copied it. Notice titles remain editable and support up to 40 characters, including “Privacy & Confidentiality Notice.”
 
 ### Phase 2 — Configure GAS Email Delivery
 
