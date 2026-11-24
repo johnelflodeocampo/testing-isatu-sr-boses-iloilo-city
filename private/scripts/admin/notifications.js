@@ -27,6 +27,10 @@ async function loadNotifications() {
       document.querySelector(`#${id}`).hidden = session.role !== 'superadmin';
     }
     const result = await api('/api/notifications');
+    if (!Array.isArray(result.notifications)) {
+      throw new Error('The server returned an invalid notifications list.');
+    }
+    window.dispatchEvent(new CustomEvent('boses:notifications-loaded', { detail: result }));
     if (!result.notifications.length) {
       list.innerHTML = '<p class="empty-state">You have no notifications.</p>';
       return;

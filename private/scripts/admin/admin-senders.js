@@ -54,6 +54,13 @@ async function updateSender(sender, action, value, button) {
   }
 }
 
+function labelSenderCell(cell, label) {
+  const visualLabel = element('span', 'sender-mobile-label', label);
+  visualLabel.setAttribute('aria-hidden', 'true');
+  cell.dataset.label = label;
+  cell.prepend(visualLabel, element('span', 'sr-only sender-mobile-sr-label', `${label}: `));
+}
+
 function renderSenders() {
   const query = document.querySelector('#sender-search').value.trim().toLowerCase();
   const submissionType = document.querySelector('#sender-type-filter').value;
@@ -90,17 +97,21 @@ function renderSenders() {
 
   senderTableBody.replaceChildren(...pageSenders.map((sender) => {
     const row = document.createElement('tr');
-    row.append(
-      element('td', 'sender-id-cell', sender.has_anonymous_reports ? sender.sender_id : '—'),
-      element(
-        'td',
-        '',
-        sender.has_anonymous_reports ? 'Anonymous submissions' : sender.sender_email || 'Email unavailable',
-      ),
-      element('td', '', `${sender.report_count} total · ${sender.active_report_count} active · ${sender.archived_report_count} archived`),
-      element('td', '', sender.is_message_restricted ? 'Restricted' : 'Allowed'),
-      element('td', '', sender.is_banned ? 'Banned' : 'Active'),
+    const senderIdCell = element('td', 'sender-id-cell', sender.has_anonymous_reports ? sender.sender_id : '—');
+    labelSenderCell(senderIdCell, 'Sender ID');
+    const emailCell = element(
+      'td',
+      '',
+      sender.has_anonymous_reports ? 'Anonymous submissions' : sender.sender_email || 'Email unavailable',
     );
+    labelSenderCell(emailCell, 'Email');
+    const reportsCell = element('td', '', `${sender.report_count} total · ${sender.active_report_count} active · ${sender.archived_report_count} archived`);
+    labelSenderCell(reportsCell, 'Reports');
+    const messagingCell = element('td', '', sender.is_message_restricted ? 'Restricted' : 'Allowed');
+    labelSenderCell(messagingCell, 'Messaging');
+    const accessCell = element('td', '', sender.is_banned ? 'Banned' : 'Active');
+    labelSenderCell(accessCell, 'Member access');
+    row.append(senderIdCell, emailCell, reportsCell, messagingCell, accessCell);
     const actions = element('div', 'table-actions');
     const restrictButton = element(
       'button',
@@ -133,6 +144,7 @@ function renderSenders() {
       actions.append(element('span', 'report-meta', 'Ban controls: superadmin'));
     }
     const actionsCell = document.createElement('td');
+    labelSenderCell(actionsCell, 'Actions');
     actionsCell.append(actions);
     row.append(actionsCell);
     return row;

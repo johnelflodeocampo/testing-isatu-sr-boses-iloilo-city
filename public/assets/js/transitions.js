@@ -2,8 +2,10 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const publicPage = document.body.classList.contains('public-page');
 const transitionPage = publicPage;
 const transitionTargetKey = 'publicPageTransitionTarget';
+const transitionFallbackDelay = 600;
 let navigationPending = false;
 let pendingDestination = null;
+let transitionFallbackTimer = null;
 
 let transitionOverlay = null;
 
@@ -23,9 +25,21 @@ if (transitionPage) {
     if (event.target !== transitionOverlay) return;
 
     if (event.animationName === 'public-yellow-reveal') {
+      clearTransitionFallback();
       document.body.classList.remove('is-entering');
-    } else if (event.animationName === 'public-yellow-cover' && pendingDestination) {
-      window.location.assign(pendingDestination);
+    } else if (event.animationName === 'public-yellow-cover') {
+      finishLeavingTransition();
+    }
+  });
+
+  transitionOverlay.addEventListener('animationcancel', (event) => {
+    if (event.target !== transitionOverlay) return;
+
+    if (event.animationName === 'public-yellow-reveal') {
+      clearTransitionFallback();
+      document.body.classList.remove('is-entering');
+    } else if (event.animationName === 'public-yellow-cover') {
+      finishLeavingTransition();
     }
   });
 }
@@ -52,14 +66,39 @@ function consumeTransitionTarget() {
 
 let animateIncomingTransition = consumeTransitionTarget() && transitionPage;
 
+function clearTransitionFallback() {
+  if (transitionFallbackTimer === null) return;
+  window.clearTimeout(transitionFallbackTimer);
+  transitionFallbackTimer = null;
+}
+
+function scheduleTransitionFallback(callback) {
+  clearTransitionFallback();
+  transitionFallbackTimer = window.setTimeout(() => {
+    transitionFallbackTimer = null;
+    callback();
+  }, transitionFallbackDelay);
+}
+
+function finishLeavingTransition() {
+  if (!pendingDestination) return;
+  const destination = pendingDestination;
+  pendingDestination = null;
+  clearTransitionFallback();
+  window.location.assign(destination);
+}
+
 function resetPageTransition() {
+  clearTransitionFallback();
   navigationPending = false;
   pendingDestination = null;
   document.body.classList.remove('is-leaving');
   document.body.classList.remove('is-entering');
   if (animateIncomingTransition && !reducedMotion.matches) {
     document.body.classList.add('is-entering');
+    scheduleTransitionFallback(() => document.body.classList.remove('is-entering'));
   }
+  document.documentElement.classList.remove('public-transition-pending');
   animateIncomingTransition = false;
 }
 
@@ -86,6 +125,7 @@ function navigateWithTransition(url) {
   navigationPending = true;
   pendingDestination = destination.href;
   document.body.classList.add('is-leaving');
+  scheduleTransitionFallback(finishLeavingTransition);
 }
 
 window.bosesNavigate = navigateWithTransition;
@@ -95,8 +135,9 @@ function initAuthenticatedTopbarActions() {
   const sidebar = document.querySelector('.portal-sidebar');
   const nav = sidebar?.querySelector('.sidebar-nav');
   const signout = sidebar?.querySelector('.sidebar-signout');
+  const account = document.querySelector('.dashboard-user');
   if (!sidebar || !nav || !signout) return;
-  if (nav.querySelector('[data-sidebar-actions]')) return;
+  if (sidebar.querySelector('[data-sidebar-actions]')) return;
 
   const actions = document.createElement('div');
   actions.className = 'sidebar-account-actions';
@@ -120,46 +161,130 @@ function initAuthenticatedTopbarActions() {
     || document.body.classList.contains('admin-notifications-page');
   actions.querySelector('[data-notification-view-all]').href =
     isOfficer ? '/admin/notifications' : '/notifications';
-  actions.append(signout);
+  let closeAccountMenu = () => {};
+  let closeNotificationMenu = () => {};
+  if (account) {
+    const accountMenu = document.createElement('div');
+    accountMenu.className = 'dashboard-account-menu';
+
+    const accountButton = document.createElement('button');
+    accountButton.type = 'button';
+    accountButton.className = `${account.className} dashboard-account-button`;
+    accountButton.setAttribute('aria-haspopup', 'true');
+    accountButton.setAttribute('aria-expanded', 'false');
+    accountButton.setAttribute('aria-controls', 'dashboard-account-dropdown');
+    accountButton.append(...account.childNodes);
+
+    const accountDropdown = document.createElement('div');
+    accountDropdown.className = 'dashboard-account-dropdown';
+    accountDropdown.id = 'dashboard-account-dropdown';
+    accountDropdown.hidden = true;
+    accountDropdown.append(nav, signout);
+    nav.setAttribute('aria-label', 'Dashboard navigation');
+    const accountTopbar = account.closest('.dashboard-topbar');
+    account.remove();
+    accountMenu.append(accountButton, accountDropdown);
+    actions.append(accountMenu);
+    if (accountTopbar && !accountTopbar.children.length) accountTopbar.remove();
+
+    closeAccountMenu = () => {
+      accountDropdown.hidden = true;
+      accountButton.setAttribute('aria-expanded', 'false');
+    };
+    accountButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closeNotificationMenu();
+      const open = accountDropdown.hidden;
+      accountDropdown.hidden = !open;
+      accountButton.setAttribute('aria-expanded', String(open));
+    });
+    accountDropdown.addEventListener('click', (event) => {
+      if (event.target.closest('a')) closeAccountMenu();
+    });
+    document.addEventListener('click', (event) => {
+      if (!accountMenu.contains(event.target)) closeAccountMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !accountDropdown.hidden) {
+        closeAccountMenu();
+        accountButton.focus();
+      }
+    });
+  } else {
+    actions.append(signout);
+  }
   sidebar.append(actions);
 
   const bell = actions.querySelector('[data-notification-bell]');
   const dropdown = actions.querySelector('[data-notification-dropdown]');
   const list = actions.querySelector('[data-notification-list]');
   const badge = actions.querySelector('[data-notification-badge]');
+  let loadingNotifications = false;
+  let lastNotificationsLoadedAt = 0;
+
+  function renderNotifications(result) {
+    if (!Array.isArray(result?.notifications)) {
+      throw new Error('The server returned an invalid notifications list.');
+    }
+    const unread = Number.isInteger(result.unread)
+      ? result.unread
+      : result.notifications.filter((item) => !item.is_read).length;
+    badge.textContent = String(unread);
+    badge.hidden = unread === 0;
+    if (!result.notifications.length) {
+      list.innerHTML = '<p class="empty-state">You have no notifications.</p>';
+      return;
+    }
+    list.replaceChildren(...result.notifications.slice(0, 5).map((item) => {
+      const link = document.createElement('a');
+      link.className = `notification-dropdown-item${item.is_read ? '' : ' is-unread'}`;
+      link.href = item.link;
+      link.innerHTML = `<strong>${item.title}</strong><span>${item.body}</span>`;
+      link.addEventListener('click', () => {
+        if (!item.is_read) fetch(`/api/notifications/${encodeURIComponent(item.id)}/read`, {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'BOSES-Client' },
+        }).catch(() => {});
+      });
+      return link;
+    }));
+  }
+
+  closeNotificationMenu = () => {
+    dropdown.hidden = true;
+    bell.setAttribute('aria-expanded', 'false');
+  };
 
   async function loadNotifications() {
+    if (loadingNotifications || Date.now() - lastNotificationsLoadedAt < 30_000) return;
+    loadingNotifications = true;
     try {
       const response = await fetch('/api/notifications', { credentials: 'same-origin' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load notifications.');
-      badge.textContent = String(result.unread);
-      badge.hidden = result.unread === 0;
-      if (!result.notifications.length) {
-        list.innerHTML = '<p class="empty-state">You have no notifications.</p>';
-        return;
-      }
-      list.replaceChildren(...result.notifications.slice(0, 5).map((item) => {
-        const link = document.createElement('a');
-        link.className = `notification-dropdown-item${item.is_read ? '' : ' is-unread'}`;
-        link.href = item.link;
-        link.innerHTML = `<strong>${item.title}</strong><span>${item.body}</span>`;
-        link.addEventListener('click', () => {
-          if (!item.is_read) fetch(`/api/notifications/${encodeURIComponent(item.id)}/read`, {
-            method: 'PATCH',
-            credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'BOSES-Client' },
-          }).catch(() => {});
-        });
-        return link;
-      }));
+      lastNotificationsLoadedAt = Date.now();
+      renderNotifications(result);
     } catch (error) {
       list.innerHTML = `<p class="form-message is-error">${error.message}</p>`;
+    } finally {
+      loadingNotifications = false;
     }
   }
 
+  window.addEventListener('boses:notifications-loaded', (event) => {
+    if (!document.body.classList.contains('admin-notifications-page')) return;
+    try {
+      renderNotifications(event.detail);
+      lastNotificationsLoadedAt = Date.now();
+    } catch (error) {
+      list.innerHTML = `<p class="form-message is-error">${error.message}</p>`;
+    }
+  });
+
   bell.addEventListener('click', (event) => {
     event.stopPropagation();
+    closeAccountMenu();
     const open = dropdown.hidden;
     dropdown.hidden = !open;
     bell.setAttribute('aria-expanded', String(open));
@@ -178,24 +303,26 @@ function initAuthenticatedTopbarActions() {
     }
   });
 
-  signout.addEventListener('click', async () => {
-    signout.disabled = true;
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'X-Requested-With': 'BOSES-Client' },
-      });
-      const result = await response.json();
-      if (!response.ok || result?.signedOut !== true) throw new Error(result?.error || 'Could not sign out.');
-      window.location.assign('/');
-    } catch (error) {
-      window.alert(error.message);
-      signout.disabled = false;
-    }
-  });
+  if (!signout.id) {
+    signout.addEventListener('click', async () => {
+      signout.disabled = true;
+      try {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'BOSES-Client' },
+        });
+        const result = await response.json();
+        if (!response.ok || result?.signedOut !== true) throw new Error(result?.error || 'Could not sign out.');
+        window.location.assign('/');
+      } catch (error) {
+        window.alert(error.message);
+        signout.disabled = false;
+      }
+    });
+  }
 
-  loadNotifications();
+  if (!document.body.classList.contains('admin-notifications-page')) loadNotifications();
 }
 
 initAuthenticatedTopbarActions();

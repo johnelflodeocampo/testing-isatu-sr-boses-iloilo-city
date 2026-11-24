@@ -35,10 +35,6 @@
     <main class="portal-main dashboard-main">
     <p class="muted">Admins and superadmins can manage published answers for students.</p>
     <section id="faq-panel" class="panel admin-panel resource-admin-panel">
-      <div class="resource-faq-toolbar">
-        <button id="add-faq-button" class="button button-small" type="button">Add answer</button>
-        <button class="button button-small button-muted" type="button" data-manage-categories="faq">Manage categories</button>
-      </div>
       <div class="toolbar resource-faq-filters">
         <label class="search-field"><span class="sr-only">Search questions and answers</span><input id="faq-search" type="search" placeholder="Search questions or answers"></label>
         <label class="filter-field" for="faq-category-filter">Category
@@ -46,10 +42,19 @@
         </label>
       </div>
       <section class="resource-crud-records" aria-labelledby="published-answers-title">
-        <h3 id="published-answers-title" class="resource-crud-heading">
-          <span class="resource-crud-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h8l4 4v13H7z"/><path d="M15 3.5v5h4M10 12h6M10 16h6"/></svg></span>
-          <span>Published answers</span>
-        </h3>
+        <div class="resource-faq-table-heading">
+          <div class="resource-faq-title">
+            <span class="resource-crud-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4.5 5.5c3-.8 5.8-.5 7.5 1.4 1.7-1.9 4.5-2.2 7.5-1.4v13c-3-.8-5.8-.5-7.5 1.4-1.7-1.9-4.5-2.2-7.5-1.4z"/><path d="M12 6.9v13M7.5 9h2M14.5 9h2M7.5 12h2M14.5 12h2"/></svg></span>
+            <div class="resource-faq-title-copy">
+              <h2 id="published-answers-title" class="resource-crud-heading">Published answers</h2>
+              <p class="resource-faq-description">Approved answers available to students in the Resources portal.</p>
+            </div>
+          </div>
+          <div class="resource-faq-toolbar">
+            <button id="add-faq-button" class="button button-small" type="button">Add answer</button>
+            <button class="button button-small button-muted" type="button" data-manage-categories="faq">Manage categories</button>
+          </div>
+        </div>
         <p id="faq-list-message" class="form-message" role="status" aria-live="polite"></p>
         <div id="faq-table-wrap" class="table-wrap resource-faq-table-wrap">
           <table class="data-table resource-faq-table">

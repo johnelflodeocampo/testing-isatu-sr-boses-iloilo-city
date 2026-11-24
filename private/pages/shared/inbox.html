@@ -19,7 +19,7 @@
       </span>
       <span class="sidebar-brand-copy">
         <strong>Iloilo Science and Technology University</strong>
-        <small id="message-brand-subtitle">Student Republic</small>
+        <small id="message-brand-subtitle">STUDENT REPUBLIC — ILOILO CITY CAMPUS</small>
       </span>
     </a>
     <nav class="sidebar-nav" aria-label="Workspace navigation">
@@ -49,6 +49,7 @@
       </div>
     </header>
   <main class="portal-main dashboard-main">
+      <p id="inbox-description" class="muted">Follow conversations and messages related to submitted reports.</p>
     <section class="messages-layout" aria-label="Report conversations">
       <aside class="panel messages-sidebar">
         <div class="panel-heading"><span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg></span><div><h2>Conversations</h2><p>Select a report to view its messages.</p></div></div>
@@ -76,7 +77,13 @@
         <div id="conversation-list" class="conversation-list"><p class="empty-state">Loading conversations…</p></div>
       </aside>
       <section class="panel messages-panel" aria-label="Selected conversation">
-        <div id="conversation-heading" class="conversation-heading"><p class="empty-state">Choose a report to open its conversation.</p></div>
+        <div id="conversation-heading" class="conversation-heading">
+          <button id="mobile-conversations-back" class="mobile-conversations-back" type="button" aria-label="Back to conversations" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <span>Conversations</span>
+          </button>
+          <p class="empty-state">Choose a report to open its conversation.</p>
+        </div>
         <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
         <p id="chat-error" class="form-message is-error chat-error" role="status"></p>
         <form id="chat-compose" class="chat-compose" hidden>

@@ -455,7 +455,13 @@ function updateAssignmentButtons() {
   }
 }
 
+let loadingInsights = false;
+
 async function loadInsights() {
+  if (loadingInsights) return;
+  loadingInsights = true;
+  const refreshButton = document.querySelector('#refresh-button');
+  if (refreshButton) refreshButton.disabled = true;
   if (adminReportList) {
     adminReportList.replaceChildren(element('p', 'empty-state', 'Loading reports…'));
   }
@@ -516,6 +522,9 @@ async function loadInsights() {
         adminMessage.className = 'form-message is-error';
       }
     }
+  } finally {
+    loadingInsights = false;
+    if (refreshButton) refreshButton.disabled = false;
   }
 }
 

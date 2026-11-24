@@ -394,8 +394,12 @@ module.exports = function createController(dependencies) {
            VALUES ('officer', 'all_officers', $1, 'new_message',
                    'New report message',
                    $2,
-                   '/inbox?report=' || $1::text)`,
-          [id, 'A student sent a new message in a report conversation.'],
+                   $3)`,
+          [
+            id,
+            'A student sent a new message in a report conversation.',
+            `/inbox?report=${encodeURIComponent(id)}`,
+          ],
         );
         await notifyOfficersForReport(id, 'new_message');
         response.status(201).json({ message: result.rows[0] });
@@ -1279,11 +1283,12 @@ module.exports = function createController(dependencies) {
               VALUES ('member', $1, $2, 'new_message',
                       'New officer message',
                       $3,
-                      '/inbox?report=' || $2::text)`,
+                      $4)`,
              [
                identity.rows[0].identity_hash,
                id,
                `The officer team sent a message about ${identity.rows[0].tracking_id}.`,
+               `/inbox?report=${encodeURIComponent(id)}`,
              ],
            );
          }

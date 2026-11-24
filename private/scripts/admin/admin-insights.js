@@ -54,6 +54,13 @@ function renderEmpty(message, className = 'empty-state') {
   feedbackTable.replaceChildren(row);
 }
 
+function labelFeedbackCell(cell, label) {
+  const visualLabel = element('span', 'feedback-mobile-label', label);
+  visualLabel.setAttribute('aria-hidden', 'true');
+  cell.dataset.label = label;
+  cell.prepend(visualLabel, element('span', 'sr-only feedback-mobile-sr-label', `${label}: `));
+}
+
 function populateStatusFilter() {
   const selectedStatus = statusFilter.value;
   const statusOrder = [
@@ -125,18 +132,25 @@ function renderFeedback() {
 
   feedbackTable.replaceChildren(...pageItems.map((insight) => {
     const row = document.createElement('tr');
-    row.append(
-      element('th', 'tracking-code', insight.tracking_id),
-    );
+    const trackingCell = element('th', 'tracking-code', insight.tracking_id);
+    labelFeedbackCell(trackingCell, 'Tracking ID');
+    row.append(trackingCell);
     const content = element('td', 'feedback-content-cell', insight.content);
+    labelFeedbackCell(content, 'Portal Insight');
     content.title = insight.content;
     row.append(content);
-    row.append(element('td', 'feedback-submitter-cell', submitterLabel(insight)));
+    const submitterCell = element('td', 'feedback-submitter-cell', submitterLabel(insight));
+    labelFeedbackCell(submitterCell, 'Submitter');
+    row.append(submitterCell);
     const statusCell = document.createElement('td');
+    labelFeedbackCell(statusCell, 'Status');
     statusCell.append(element('span', `status-pill status-${insight.status.replaceAll('_', '-')}`, formatStatus(insight.status)));
     row.append(statusCell);
-    row.append(element('td', '', new Date(insight.created_at).toLocaleString()));
+    const submittedCell = element('td', '', new Date(insight.created_at).toLocaleString());
+    labelFeedbackCell(submittedCell, 'Submitted');
+    row.append(submittedCell);
     const actions = document.createElement('td');
+    labelFeedbackCell(actions, 'Actions');
     const viewButton = element('button', 'button button-small button-muted', 'View details');
     viewButton.type = 'button';
     viewButton.addEventListener('click', () => showDetails(insight));

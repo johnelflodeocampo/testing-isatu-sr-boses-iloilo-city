@@ -220,6 +220,7 @@ function renderDashboardRecentReports(insights) {
     .slice(0, 3);
   if (!recent.length) {
     const row = document.createElement('tr');
+    row.className = 'dashboard-table-empty-row';
     const cell = makeElement('td', 'dashboard-table-empty', 'No reports yet. Your first submission will appear here.');
     cell.colSpan = 3;
     row.append(cell);
@@ -229,8 +230,11 @@ function renderDashboardRecentReports(insights) {
   dashboardRecentReports.replaceChildren(...recent.map((insight) => {
     const row = document.createElement('tr');
     const type = makeElement('td', '', reportTypeLabel(insight));
+    type.dataset.label = 'Report';
     const tracking = makeElement('td', 'tracking-code', insight.tracking_id);
+    tracking.dataset.label = 'Tracking ID';
     const status = document.createElement('td');
+    status.dataset.label = 'Status';
     status.append(makeElement('span', `status-pill ${statusClass(insight.status)}`, formatStatus(insight.status)));
     row.append(type, tracking, status);
     return row;
@@ -249,6 +253,7 @@ async function loadDashboardRecentReports() {
     );
   } catch (error) {
     const row = document.createElement('tr');
+    row.className = 'dashboard-table-empty-row';
     const cell = makeElement('td', 'dashboard-table-empty is-error', error.message);
     cell.colSpan = 3;
     row.append(cell);

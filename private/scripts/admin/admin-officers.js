@@ -76,6 +76,13 @@ async function removeOfficer(admin, button) {
   }
 }
 
+function labelOfficerCell(cell, label) {
+  const visualLabel = element('span', 'officer-mobile-label', label);
+  visualLabel.setAttribute('aria-hidden', 'true');
+  cell.dataset.label = label;
+  cell.prepend(visualLabel, element('span', 'sr-only officer-mobile-sr-label', `${label}: `));
+}
+
 function renderOfficerAccess() {
   const query = document.querySelector('#officer-search').value.trim().toLowerCase();
   const selectedRole = document.querySelector('#officer-role-filter').value;
@@ -106,13 +113,17 @@ function renderOfficerAccess() {
 
   officerAccessList.replaceChildren(...pageAdmins.map((admin) => {
     const row = document.createElement('tr');
-    row.append(
-      element('td', '', admin.name || 'Name not set'),
-      element('td', 'officer-email-cell', admin.email),
-      element('td', '', admin.role === 'superadmin' ? 'Superadmin' : 'Admin'),
-      element('td', '', new Date(admin.added_at).toLocaleString()),
-      element('td', '', new Date(admin.updated_at).toLocaleString()),
-    );
+    const nameCell = element('td', '', admin.name || 'Name not set');
+    labelOfficerCell(nameCell, 'Name');
+    const emailCell = element('td', 'officer-email-cell', admin.email);
+    labelOfficerCell(emailCell, 'Email');
+    const roleCell = element('td', '', admin.role === 'superadmin' ? 'Superadmin' : 'Admin');
+    labelOfficerCell(roleCell, 'Role');
+    const addedCell = element('td', '', new Date(admin.added_at).toLocaleString());
+    labelOfficerCell(addedCell, 'Added');
+    const updatedCell = element('td', '', new Date(admin.updated_at).toLocaleString());
+    labelOfficerCell(updatedCell, 'Updated');
+    row.append(nameCell, emailCell, roleCell, addedCell, updatedCell);
     const actions = element('div', 'table-actions officer-table-actions');
     const updateButton = element('button', 'button button-small button-muted', 'Update');
     updateButton.type = 'button';
@@ -124,6 +135,7 @@ function renderOfficerAccess() {
     removeButton.addEventListener('click', () => removeOfficer(admin, removeButton));
     actions.append(updateButton, removeButton);
     const actionsCell = document.createElement('td');
+    labelOfficerCell(actionsCell, 'Actions');
     actionsCell.append(actions);
     row.append(actionsCell);
     return row;

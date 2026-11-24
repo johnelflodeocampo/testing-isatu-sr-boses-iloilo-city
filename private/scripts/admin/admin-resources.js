@@ -148,6 +148,13 @@ function openFaqEditor(entry) {
   faqForm.elements.category.focus();
 }
 
+function labelFaqCell(cell, label) {
+  const visualLabel = element('span', 'resource-faq-cell-label', label);
+  visualLabel.setAttribute('aria-hidden', 'true');
+  cell.dataset.label = label;
+  cell.prepend(visualLabel, element('span', 'sr-only resource-faq-sr-label', `${label}: `));
+}
+
 function renderFaqs(entries) {
   faqEntries = entries;
   faqPage = 1;
@@ -183,10 +190,16 @@ function renderFaqTable() {
 
   faqAdminList.replaceChildren(...pageEntries.map((entry) => {
     const row = document.createElement('tr');
+    const categoryCell = element('td', '', entry.category);
+    labelFaqCell(categoryCell, 'Category');
     const questionCell = element('td', 'faq-question-cell');
+    labelFaqCell(questionCell, 'Question');
     questionCell.append(element('strong', '', entry.question));
-    row.append(element('td', '', entry.category), questionCell, element('td', 'faq-answer-cell', entry.answer));
+    const answerCell = element('td', 'faq-answer-cell', entry.answer);
+    labelFaqCell(answerCell, 'Answer');
+    row.append(categoryCell, questionCell, answerCell);
     const actionsCell = document.createElement('td');
+    labelFaqCell(actionsCell, 'Actions');
     const actions = element('div', 'table-actions resource-faq-actions');
     const edit = element('button', 'button button-small button-muted', 'Edit');
     edit.type = 'button';

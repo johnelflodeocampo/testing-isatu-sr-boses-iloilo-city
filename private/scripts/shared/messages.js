@@ -2,6 +2,7 @@ const conversationList = document.querySelector('#conversation-list');
 const conversationSearch = document.querySelector('#conversation-search');
 const conversationStatus = document.querySelector('#conversation-status');
 const conversationHeading = document.querySelector('#conversation-heading');
+const mobileConversationsBack = document.querySelector('#mobile-conversations-back');
 const messageList = document.querySelector('#chat-messages');
 const messageError = document.querySelector('#chat-error');
 const messageForm = document.querySelector('#chat-compose');
@@ -47,6 +48,10 @@ function statusClass(status) {
 
 function emailDisplayName(email) {
   return typeof email === 'string' ? email.split('@')[0] : '';
+}
+
+function setInboxConversationOpen(isOpen) {
+  document.body.classList.toggle('inbox-conversation-open', isOpen);
 }
 
 async function request(url, options = {}) {
@@ -205,8 +210,9 @@ function renderConversations() {
 conversationSearch.addEventListener('input', renderConversations);
 conversationStatus.addEventListener('change', renderConversations);
 
-function selectInsight(insight) {
+function selectInsight(insight, { showOnMobile = true } = {}) {
   activeInsight = insight;
+  setInboxConversationOpen(showOnMobile);
   renderedMessageIds = new Set();
   renderedMessages.clear();
   renderedMessageItems.clear();
@@ -217,7 +223,8 @@ function selectInsight(insight) {
     'conversation-subtitle',
     `${reportTypeLabel(insight)}${isOfficerRole() && insight.report_type === 'concern' ? ` · ${insight.priority} priority` : ''} · ${formatStatus(insight.status)} · ${isOfficerRole() ? (insight.is_anonymous ? 'Anonymous' : emailDisplayName(insight.sender_label) || 'Submitter') : 'Officer team'}`,
   );
-  conversationHeading.replaceChildren(title, subtitle);
+  mobileConversationsBack.hidden = false;
+  conversationHeading.replaceChildren(mobileConversationsBack, title, subtitle);
   if (insight.status_comment) {
     const comment = element('section', 'status-comment');
     comment.append(
@@ -231,6 +238,17 @@ function selectInsight(insight) {
   messageError.textContent = '';
   loadMessages();
 }
+
+mobileConversationsBack.addEventListener('click', () => {
+  if (window.history.state?.reportId === activeInsight?.id) {
+    window.history.back();
+    return;
+  }
+  if (new URLSearchParams(window.location.search).has('report')) {
+    window.history.replaceState(null, '', '/inbox');
+  }
+  setInboxConversationOpen(false);
+});
 
 async function loadMessages() {
   if (!activeInsight) return;
@@ -427,7 +445,13 @@ conversationList.addEventListener('click', (event) => {
   if (!insight) return;
 
   event.preventDefault();
-  if (activeInsight?.id === insight.id) return;
+  if (activeInsight?.id === insight.id) {
+    if (new URLSearchParams(window.location.search).get('report') !== insight.id) {
+      window.history.pushState({ reportId: insight.id }, '', link.href);
+    }
+    setInboxConversationOpen(true);
+    return;
+  }
   window.history.pushState({ reportId: insight.id }, '', link.href);
   selectInsight(insight);
 });
@@ -437,9 +461,14 @@ window.addEventListener('popstate', () => {
   const insight = requestedId
     ? insights.find((item) => item.id === requestedId) || null
     : insights[0] || null;
-  if (insight && insight.id !== activeInsight?.id) selectInsight(insight);
-  else if (!insight && requestedId) {
+  if (insight && insight.id !== activeInsight?.id) {
+    selectInsight(insight, { showOnMobile: Boolean(requestedId) });
+  } else {
+    setInboxConversationOpen(Boolean(requestedId && insight));
+  }
+  if (!insight && requestedId) {
     activeInsight = null;
+    mobileConversationsBack.hidden = true;
     renderConversations();
     conversationHeading.replaceChildren(element('p', 'empty-state', 'This report has no inbox conversation.'));
     messageList.replaceChildren();
@@ -459,7 +488,7 @@ messageForm.addEventListener('submit', async (event) => {
       method: 'POST',
       body: JSON.stringify({ body }),
     });
-    messageInput.value = '';
+    messageForm.reset();
     await loadMessages();
   } catch (error) {
     messageError.textContent = error.message;
@@ -499,12 +528,12 @@ async function initialize() {
     document.body.classList.toggle('admin-portal-page', officerSession);
     document.querySelector('#workspace-tag').textContent =
       officerSession ? (role === 'superadmin' ? 'Superadmin' : 'Admin') : 'Student private space';
+    document.querySelector('#inbox-description').textContent = officerSession
+      ? 'Review conversations and respond to messages about student reports.'
+      : 'View and reply to messages from the Student Republic team about your reports.';
     if (!officerSession) conversationStatus.querySelector('option[value="archived"]')?.remove();
     document.title = `Inbox | ISAT U BOSES`;
     document.querySelector('#message-brand-link').href = officerSession ? '/admin' : '/dashboard';
-    document.querySelector('#message-brand-subtitle').textContent = officerSession
-      ? 'Officer Review Console'
-      : 'Concern and Feedback Portal';
     document.querySelector('.dashboard-user').classList.toggle('dashboard-user-officer', officerSession);
     document.querySelector('#message-user').textContent = session.name || session.email;
     const messageEmail = document.querySelector('#message-email');
@@ -551,7 +580,7 @@ async function initialize() {
       ? insights.find((insight) => insight.id === requestedId) || null
       : insights[0] || null;
     renderConversations();
-    if (activeInsight) selectInsight(activeInsight);
+    if (activeInsight) selectInsight(activeInsight, { showOnMobile: Boolean(requestedId) });
     else if (requestedId) {
       conversationHeading.replaceChildren(element('p', 'empty-state', 'This report has no inbox conversation.'));
       messageList.replaceChildren();
@@ -565,6 +594,6 @@ async function initialize() {
 
 window.setInterval(() => {
   if (!document.hidden) loadMessages();
-}, 10000);
+}, 30000);
 
 initialize();
