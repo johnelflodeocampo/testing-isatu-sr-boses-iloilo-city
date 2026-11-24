@@ -30,6 +30,8 @@ Optional:
 - `DB_POOL_MAX`: database connections per function instance; defaults to `3` on Vercel.
 - `SUPABASE_DB_CA_CERT_CONTENT`: PEM text for the Supabase database CA certificate if the default TLS roots do not validate the connection. Do not set this to a local filesystem path. `SUPABASE_DB_CA_CERT` remains available for local development paths.
 
+The project-root `prod-ca-2021.crt` is embedded as a server-side trust anchor when Vercel's `SUPABASE_DB_CA_CERT` points to that file, so serverless file tracing cannot omit it. For a different certificate, use `SUPABASE_DB_CA_CERT_CONTENT`.
+
 Never commit `.env` or paste secret values into source files. Rotate any credentials that have been shared outside the Vercel environment.
 
 Vercel supplies deployment hostnames for Preview and Production. The app uses HTTPS cookies and permits same-origin browser requests for the configured URL and the current Vercel deployment hostname.
@@ -37,7 +39,7 @@ In production mode, startup validates the GAS URL and shared secret without send
 
 ## 3. Deploy
 
-Connect this repository to Vercel with the repository root as the project root. `vercel.json` explicitly selects the Express framework so application routes such as `/privacy` and `/login` reach the exported app in `app.js`. No frontend build command is required; static assets under `public/assets/` are served directly at their existing `/assets/...` URLs.
+Connect this repository to Vercel with the repository root as the project root. `vercel.json` explicitly selects the Express framework so application routes such as `/privacy` and `/login` reach the exported app in `app.js`. No frontend build command is required; static assets under `public/assets/` are served directly at their existing `/assets/...` URLs and use a 10-minute Vercel edge cache. Authenticated API responses and private pages remain uncached; browser-side notification refreshes are throttled, the admin notifications page reuses its initial response for the notification menu, and overlapping dashboard refresh requests are suppressed.
 
 The app uses PostgreSQL-backed rate limiting so OTP and API limits are shared across serverless instances. The rate-limit table stores HMACs of client keys rather than raw IP addresses. Privacy-notice edits are persisted in PostgreSQL; Vercel's temporary filesystem is not used for writes.
 

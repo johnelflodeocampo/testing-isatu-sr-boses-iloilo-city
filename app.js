@@ -11,6 +11,7 @@ const createGasApiClient = require('./utils/gasApi');
 const createLoginOtp = require('./utils/loginOtp');
 const createPostgresRateLimitStore = require('./utils/postgresRateLimitStore');
 const createPrivacyNoticeStore = require('./lib/postgresPrivacyNoticeStore');
+const getErrorRecoveryAction = require('./utils/errorRecoveryAction');
 const {
   normalizeEmail: normalizeIsatuEmail,
   normalizeOfficerEmail,
@@ -98,6 +99,11 @@ app.use(
   }),
 );
 app.use((request, response, next) => {
+  const requestPath = request.originalUrl.split('?')[0];
+  if (requestPath.startsWith('/assets/') || requestPath === '/favicon.ico') {
+    return next();
+  }
+
   const startedAt = Date.now();
   response.on('finish', () => {
     const routePath = request.route?.path;
@@ -119,10 +125,17 @@ app.use((request, response, next) => {
   next();
 });
 app.use(express.json({ limit: '64kb' }));
+app.get('/favicon.ico', (request, response) => {
+  response.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  response.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
   fallthrough: false,
   index: false,
   maxAge: 0,
+  setHeaders(response) {
+    response.set('Cache-Control', 'public, max-age=0, s-maxage=600');
+  },
 }));
 
 const apiLimiter = rateLimit({
@@ -451,10 +464,19 @@ const errorDetails = {
   504: { title: 'Request timed out', message: 'The service took too long to respond. Please try again later.' },
 };
 
-function sendErrorPage(response, status) {
+function sendErrorPage(request, response, status) {
   const details = errorDetails[status] || (status >= 500
     ? errorDetails[500]
     : { title: 'Request could not be completed', message: 'Please check the address and try again.' });
+  const session = request.session || readSession(request);
+  const recoveryAction = getErrorRecoveryAction(session?.role);
+  const accountEmail = String(session?.email || '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]);
   return response
     .status(status)
     .set({
@@ -467,7 +489,12 @@ function sendErrorPage(response, status) {
       errorPageTemplate
         .replaceAll('<!-- ERROR_STATUS -->', String(status))
         .replaceAll('<!-- ERROR_TITLE -->', details.title)
-        .replaceAll('<!-- ERROR_MESSAGE -->', details.message),
+        .replaceAll('<!-- ERROR_MESSAGE -->', details.message)
+        .replaceAll('<!-- ERROR_ACTION_LABEL -->', recoveryAction.label)
+        .replaceAll('<!-- ERROR_ACTION_HREF -->', recoveryAction.href)
+        .replaceAll('<!-- ERROR_BODY_CLASS -->', recoveryAction.bodyClass)
+        .replaceAll('<!-- ERROR_CONTEXT -->', recoveryAction.context)
+        .replaceAll('<!-- ERROR_ACCOUNT_EMAIL -->', accountEmail),
     );
 }
 
@@ -476,7 +503,7 @@ app.use((request, response) => {
   if (requestPath === '/api' || requestPath.startsWith('/api/')) {
     return response.status(404).json({ error: 'The requested API endpoint was not found.' });
   }
-  return sendErrorPage(response, 404);
+  return sendErrorPage(request, response, 404);
 });
 
 app.use((error, request, response, next) => {
@@ -494,7 +521,7 @@ app.use((error, request, response, next) => {
       : 'The request could not be completed.';
     return response.status(status).json({ error: message });
   }
-  return sendErrorPage(response, status);
+  return sendErrorPage(request, response, status);
 });
 
 async function start() {
