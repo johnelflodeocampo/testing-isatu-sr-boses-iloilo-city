@@ -13,6 +13,7 @@
     "migrate:privacy-notice": "node scripts/migratePrivacyNoticeToPostgres.js"
   },
   "dependencies": {
+    "@vercel/functions": "^3.11.3",
     "dotenv": "^16.4.7",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.5",
