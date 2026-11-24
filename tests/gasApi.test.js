@@ -177,9 +177,99 @@ test('GAS authorization check sends an authenticated no-email diagnostic event',
     },
   });
 
-  await client.checkAuthorization();
+  const result = await client.checkAuthorization();
+  assert.deepEqual(result, { ok: true, authorized: true });
   assert.deepEqual(JSON.parse(requestPayload.payload), { event: 'auth_check' });
   assert.equal(requestPayload.secret, process.env.GAS_API_SECRET);
+});
+
+test('GAS readiness check rejects an explicitly exhausted quota', async (t) => {
+  const originalUrl = process.env.GAS_API_URL;
+  const originalSecret = process.env.GAS_API_SECRET;
+  process.env.GAS_API_URL = 'https://script.google.com/macros/s/test-deployment/exec';
+  process.env.GAS_API_SECRET = 'test-secret-with-at-least-thirty-two-characters';
+  t.after(() => {
+    if (originalUrl === undefined) delete process.env.GAS_API_URL;
+    else process.env.GAS_API_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.GAS_API_SECRET;
+    else process.env.GAS_API_SECRET = originalSecret;
+  });
+
+  const client = createGasApiClient({}, {
+    fetchImpl: async () => ({
+      ok: true,
+      text: async () => JSON.stringify({
+        ok: true,
+        authorized: true,
+        emailReady: false,
+        remainingQuota: 0,
+      }),
+    }),
+  });
+  await assert.rejects(client.checkAuthorization(), /daily recipient quota is exhausted/);
+
+  const workingApiClient = createGasApiClient({}, {
+    fetchImpl: async () => ({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true, authorized: true }),
+    }),
+  });
+  await assert.doesNotReject(workingApiClient.checkAuthorization());
+});
+
+test('GAS readiness check explains missing MailApp authorization', async (t) => {
+  const originalUrl = process.env.GAS_API_URL;
+  const originalSecret = process.env.GAS_API_SECRET;
+  process.env.GAS_API_URL = 'https://script.google.com/macros/s/test-deployment/exec';
+  process.env.GAS_API_SECRET = 'test-secret-with-at-least-thirty-two-characters';
+  t.after(() => {
+    if (originalUrl === undefined) delete process.env.GAS_API_URL;
+    else process.env.GAS_API_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.GAS_API_SECRET;
+    else process.env.GAS_API_SECRET = originalSecret;
+  });
+
+  const client = createGasApiClient({}, {
+    fetchImpl: async () => ({
+      ok: true,
+      text: async () => JSON.stringify({
+        ok: false,
+        error: 'Email could not be sent: MailApp permission is required.',
+      }),
+    }),
+  });
+
+  await assert.rejects(client.checkAuthorization(), /authorizeEmailService/);
+});
+
+test('officer notifications fail explicitly when GAS email configuration is missing', async (t) => {
+  const originalUrl = process.env.GAS_API_URL;
+  const originalSecret = process.env.GAS_API_SECRET;
+  delete process.env.GAS_API_URL;
+  delete process.env.GAS_API_SECRET;
+  t.after(() => {
+    if (originalUrl === undefined) delete process.env.GAS_API_URL;
+    else process.env.GAS_API_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.GAS_API_SECRET;
+    else process.env.GAS_API_SECRET = originalSecret;
+  });
+
+  let queried = false;
+  const client = createGasApiClient({
+    query: async () => {
+      queried = true;
+      return { rows: [] };
+    },
+  });
+  await assert.rejects(
+    client.sendOfficerEmailNotification({
+      event: 'new_submission',
+      reportType: 'concern',
+      trackingId: 'BOSES-1234ABCD',
+    }),
+    /Set GAS_API_URL and GAS_API_SECRET/,
+  );
+  assert.equal(queried, false);
 });
 
 test('GAS authorization check identifies an outdated deployment', async (t) => {

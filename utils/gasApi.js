@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { metric } = require('@vercel/functions');
 
 const isatuEmailPattern = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(students\.)?isatu\.edu\.ph$/i;
 const allowedNotificationEvents = new Set(['new_submission', 'assignment', 'new_message']);
@@ -39,21 +40,11 @@ function createGasApiClient(
   pool,
   { fetchImpl = globalThis.fetch, now = Date.now, randomBytes = crypto.randomBytes } = {},
 ) {
-  let missingConfigurationLogged = false;
-
-  function getConfiguration(required) {
+  function getConfiguration() {
     const urlValue = process.env.GAS_API_URL?.trim();
     const secret = process.env.GAS_API_SECRET?.trim();
     if (!urlValue || !secret) {
-      if (required) throw new Error('Set GAS_API_URL and GAS_API_SECRET to enable login code email.');
-      if (!missingConfigurationLogged) {
-        console.warn(JSON.stringify({
-          event: 'gas_email_not_configured',
-          message: 'Set GAS_API_URL and GAS_API_SECRET to enable officer email notifications.',
-        }));
-        missingConfigurationLogged = true;
-      }
-      return null;
+      throw new Error('Set GAS_API_URL and GAS_API_SECRET to enable GAS email delivery.');
     }
     if (secret.length < 32 || secret.startsWith('CHANGE_ME')) {
       throw new Error('GAS_API_SECRET must be replaced with a random secret of at least 32 characters.');
@@ -68,67 +59,98 @@ function createGasApiClient(
     };
   }
 
-  async function sendAuthenticatedPayload(payload, expectedRecipients) {
-    const configuration = getConfiguration(true);
+  async function sendAuthenticatedPayload(payload, expectedRecipients, configuration = getConfiguration()) {
     const payloadJson = JSON.stringify(payload);
     const timestamp = String(Math.floor(now() / 1000));
     const nonce = randomBytes(16).toString('hex');
+    const startedAt = performance.now();
+    let outcome = 'error';
 
-    const response = await fetchImpl(configuration.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        secret: configuration.secret,
-        timestamp,
-        nonce,
-        payload: payloadJson,
-      }),
-      signal: AbortSignal.timeout(10000),
-      redirect: 'follow',
-    });
-    let responseBody;
     try {
-      responseBody = JSON.parse(await response.text());
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        throw new Error('GAS API returned an invalid response.');
+      const response = await fetchImpl(configuration.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: configuration.secret,
+          timestamp,
+          nonce,
+          payload: payloadJson,
+        }),
+        signal: AbortSignal.timeout(10000),
+        redirect: 'follow',
+      });
+      let responseBody;
+      try {
+        responseBody = JSON.parse(await response.text());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          throw new Error('GAS API returned an invalid response.');
+        }
+        throw error;
       }
-      throw error;
-    }
-    if (!response.ok || responseBody?.ok !== true) {
-      if (typeof responseBody?.error === 'string'
-        && /^Unauthorized(?:\b|:)/i.test(responseBody.error)) {
-        throw new Error(
-          'GAS rejected the shared secret. Confirm GAS_API_SECRET in the server .env matches the Apps Script Script Property and GAS_API_URL targets the current deployment.',
-        );
+      if (!response.ok || responseBody?.ok !== true) {
+        if (typeof responseBody?.error === 'string'
+          && /^Unauthorized(?:\b|:)/i.test(responseBody.error)) {
+          throw new Error(
+            'GAS rejected the shared secret. Confirm GAS_API_SECRET in the server .env matches the Apps Script Script Property and GAS_API_URL targets the current deployment.',
+          );
+        }
+        if (payload.event === 'auth_check'
+          && typeof responseBody?.error === 'string'
+          && responseBody.error.startsWith('Invalid email payload')) {
+          throw new Error('GAS deployment is outdated. Deploy the current gas_api.gs version.');
+        }
+        if (payload.event === 'auth_check') {
+          throw new Error(
+            `GAS email readiness check failed: ${responseBody?.error || 'MailApp is unavailable.'} Run authorizeEmailService() in Apps Script and deploy the current gas_api.gs version.`,
+          );
+        }
+        throw new Error(responseBody?.error || 'GAS API rejected the email request.');
       }
-      if (payload.event === 'auth_check'
-        && typeof responseBody?.error === 'string'
-        && responseBody.error.startsWith('Invalid email payload')) {
-        throw new Error('GAS deployment is outdated. Deploy the current gas_api.gs version.');
+
+      if (expectedRecipients === 0) {
+        if (responseBody.authorized !== true) {
+          throw new Error('GAS did not confirm the authenticated configuration check.');
+        }
+        if (responseBody.emailReady !== undefined
+          && typeof responseBody.emailReady !== 'boolean') {
+          throw new Error('GAS returned an invalid email readiness status.');
+        }
+        if (responseBody.remainingQuota !== undefined
+          && (!Number.isInteger(responseBody.remainingQuota) || responseBody.remainingQuota < 0)) {
+          throw new Error('GAS returned an invalid email quota.');
+        }
+        if (responseBody.emailReady === false || responseBody.remainingQuota === 0) {
+          throw new Error(
+            'GAS credentials are valid, but MailApp is not ready or its daily recipient quota is exhausted. Authorize MailApp in Apps Script and check the remaining quota.',
+          );
+        }
+        outcome = 'success';
+        return responseBody;
       }
-      throw new Error(responseBody?.error || 'GAS API rejected the email request.');
-    }
-    if (expectedRecipients === 0) {
-      if (responseBody.authorized !== true) {
-        throw new Error('GAS did not confirm the authenticated configuration check.');
+
+      if (responseBody.sent !== expectedRecipients) {
+        throw new Error('GAS API did not confirm delivery to every recipient.');
       }
-      return;
-    }
-    if (responseBody.sent !== expectedRecipients) {
-      throw new Error('GAS API did not confirm delivery to every recipient.');
+      outcome = 'success';
+      return responseBody;
+    } finally {
+      metric('boses.gas_email.requests', 1, { event: payload.event, outcome });
+      metric('boses.gas_email.duration_ms', performance.now() - startedAt, {
+        event: payload.event,
+        outcome,
+      });
     }
   }
 
   return {
     validateConfiguration() {
-      getConfiguration(true);
+      getConfiguration();
     },
 
     async sendOfficerEmailNotification(notification) {
       validateNotification(notification);
-      const configuration = getConfiguration(false);
-      if (!configuration) return;
+      const configuration = getConfiguration();
 
       const recipientsResult = await pool.query(
         `SELECT email
@@ -146,7 +168,7 @@ function createGasApiClient(
         reportType: notification.reportType,
         trackingId: notification.trackingId,
         recipients,
-      }, recipients.length);
+      }, recipients.length, configuration);
     },
 
     async sendLoginOtp(email, token) {
@@ -176,7 +198,7 @@ function createGasApiClient(
     },
 
     async checkAuthorization() {
-      await sendAuthenticatedPayload({ event: 'auth_check' }, 0);
+      return sendAuthenticatedPayload({ event: 'auth_check' }, 0);
     },
   };
 }

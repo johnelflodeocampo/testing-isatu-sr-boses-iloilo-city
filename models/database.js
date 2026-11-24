@@ -28,6 +28,22 @@ if (!['postgres:', 'postgresql:'].includes(parsedDatabaseUrl.protocol)) {
   );
 }
 
+const transactionPoolerSetting = process.env.DB_TRANSACTION_POOLER?.trim().toLowerCase();
+if (transactionPoolerSetting && !['true', 'false'].includes(transactionPoolerSetting)) {
+  throw new Error('DB_TRANSACTION_POOLER must be "true" or "false".');
+}
+const useTransactionPooler = transactionPoolerSetting === 'true';
+if (useTransactionPooler && (
+  parsedDatabaseUrl.port !== '6543'
+  || !parsedDatabaseUrl.hostname.endsWith('.pooler.supabase.com')
+  || !parsedDatabaseUrl.username.startsWith('boses_app.')
+)) {
+  throw new Error(
+    'DB_TRANSACTION_POOLER=true requires a Supabase transaction-pooler URI on port 6543 ' +
+      'authenticated as boses_app.<project-ref>.',
+  );
+}
+
 const caPath = process.env.SUPABASE_DB_CA_CERT?.trim();
 const caContent = process.env.SUPABASE_DB_CA_CERT_CONTENT?.trim();
 let ssl = true;
@@ -61,19 +77,21 @@ if (caContent) {
   ssl = { ca, rejectUnauthorized: true };
 }
 
-const maxPoolSize = Number(process.env.DB_POOL_MAX || (process.env.VERCEL ? 3 : 10));
+const maxPoolSize = Number(process.env.DB_POOL_MAX || (process.env.VERCEL ? 1 : 2));
 if (!Number.isInteger(maxPoolSize) || maxPoolSize < 1 || maxPoolSize > 20) {
   throw new Error('DB_POOL_MAX must be an integer between 1 and 20.');
 }
 
-const pool = new Pool({
+const poolOptions = {
   connectionString: databaseUrl,
   ssl,
   max: maxPoolSize,
-  idleTimeoutMillis: 10000,
+  idleTimeoutMillis: 5000,
   connectionTimeoutMillis: 10000,
-  options: '-c role=boses_app',
-});
+};
+if (!useTransactionPooler) poolOptions.options = '-c role=boses_app';
+
+const pool = new Pool(poolOptions);
 
 pool.on('error', (error) => {
   console.error('Unexpected PostgreSQL pool error:', error.message);
